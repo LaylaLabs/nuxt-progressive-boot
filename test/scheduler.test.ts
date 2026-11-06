@@ -59,3 +59,4 @@ describe('ChunkCacheRegistry', () => {
     expect(registry.get('/categorias')?.error).toBe('Network error')
   })
 })
+

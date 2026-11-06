@@ -44,3 +44,12 @@ export default defineNuxtModule<ModuleOptions>({
     addImportsDir(resolver.resolve('./runtime/composables'))
   },
 })
+
+declare module '@nuxt/schema' {
+  interface NuxtConfig {
+    progressiveBoot?: Partial<ModuleOptions>
+  }
+  interface NuxtOptions {
+    progressiveBoot?: ModuleOptions
+  }
+}
