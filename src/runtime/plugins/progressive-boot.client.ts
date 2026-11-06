@@ -150,12 +150,19 @@ export default defineNuxtPlugin((nuxtApp) => {
   // 2. Predictive route prefetching on route changes
   if (Object.keys(routeMap).length > 0) {
     const router = useRouter()
+    let activeNavigationTimer: ReturnType<typeof setTimeout> | null = null
 
     router.afterEach((to) => {
       const targets = routeMap[to.path]
       if (!targets || targets.length === 0) return
 
-      setTimeout(() => {
+      if (activeNavigationTimer !== null) {
+        clearTimeout(activeNavigationTimer)
+        activeNavigationTimer = null
+      }
+
+      activeNavigationTimer = setTimeout(() => {
+        activeNavigationTimer = null
         for (const target of targets) {
           if (registry.isLoaded(target) || registry.isPending(target)) continue
 

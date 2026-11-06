@@ -36,6 +36,21 @@ describe('IdleTaskScheduler', () => {
     const result = await succeedingTask
     expect(result).toBe('ok')
   })
+
+  it('cancels pending queue and fallback timers on clear', () => {
+    const scheduler = new IdleTaskScheduler()
+    let executed = false
+
+    scheduler.enqueue('pending-task', () => {
+      executed = true
+    }, 'idle')
+
+    expect(scheduler.pendingCount).toBe(1)
+    scheduler.clear()
+
+    expect(scheduler.pendingCount).toBe(0)
+    expect(executed).toBe(false)
+  })
 })
 
 describe('ChunkCacheRegistry', () => {

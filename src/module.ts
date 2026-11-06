@@ -42,12 +42,17 @@ export default defineNuxtModule<ModuleOptions>({
       const configuredNames = new Set((options.prefetch?.components || []) as string[])
       if (configuredNames.size === 0) return
 
-      matchedComponents = components
-        .filter(c => configuredNames.has(c.pascalName) || configuredNames.has(c.kebabName))
-        .map(c => ({
-          name: c.pascalName,
-          path: c.filePath,
-        }))
+      const componentMap = new Map<string, string>()
+      for (const c of components) {
+        if ((configuredNames.has(c.pascalName) || configuredNames.has(c.kebabName)) && !componentMap.has(c.pascalName)) {
+          componentMap.set(c.pascalName, c.filePath)
+        }
+      }
+
+      matchedComponents = Array.from(componentMap.entries()).map(([name, path]) => ({
+        name,
+        path,
+      }))
     })
 
     // Virtual file exporting dynamic component loaders

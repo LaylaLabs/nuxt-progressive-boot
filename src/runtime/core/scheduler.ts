@@ -14,6 +14,7 @@ export class IdleTaskScheduler {
   private queue: TaskRecord[] = []
   private isProcessing = false
   private currentIdleHandle: number | null = null
+  private currentTimerHandle: ReturnType<typeof setTimeout> | null = null
   private debug = false
 
   private readonly priorityWeights: Record<TaskPriority, number> = {
@@ -118,7 +119,8 @@ export class IdleTaskScheduler {
     else {
       // Fallback for browsers/environments without requestIdleCallback
       const fallbackDelay = nextTask.definition.priority === 'high' ? 30 : 100
-      setTimeout(() => {
+      this.currentTimerHandle = setTimeout(() => {
+        this.currentTimerHandle = null
         const start = Date.now()
         this.processWithDeadline({
           didTimeout: false,
@@ -131,6 +133,7 @@ export class IdleTaskScheduler {
   private async processWithDeadline(deadline: { didTimeout: boolean, timeRemaining: () => number }): Promise<void> {
     this.isProcessing = true
     this.currentIdleHandle = null
+    this.currentTimerHandle = null
 
     try {
       while (this.queue.length > 0 && (deadline.timeRemaining() > 8 || deadline.didTimeout)) {
@@ -181,6 +184,10 @@ export class IdleTaskScheduler {
     if (this.currentIdleHandle !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
       (window as Window).cancelIdleCallback(this.currentIdleHandle)
       this.currentIdleHandle = null
+    }
+    if (this.currentTimerHandle !== null) {
+      clearTimeout(this.currentTimerHandle)
+      this.currentTimerHandle = null
     }
     this.queue = []
     this.isProcessing = false
