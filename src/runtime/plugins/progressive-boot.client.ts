@@ -1,0 +1,157 @@
+import { defineNuxtPlugin, useRuntimeConfig, useRouter, preloadRouteComponents } from '#app'
+import { ref } from 'vue'
+import { IdleTaskScheduler } from '../core/scheduler'
+import { ChunkCacheRegistry } from '../core/registry'
+import type { ModuleOptions } from '../../types'
+
+export default defineNuxtPlugin((nuxtApp) => {
+  const config = useRuntimeConfig()
+  const options = (config.public.progressiveBoot || {}) as ModuleOptions
+
+  const debug = Boolean(options.debug)
+  const scheduler = new IdleTaskScheduler({ debug })
+  const registry = new ChunkCacheRegistry()
+
+  const isDismissed = ref(false)
+  const appStartTime = performance.now()
+
+  /**
+   * Invokes native Capacitor Splash Screen plugin if present
+   */
+  async function triggerNativeDismiss(): Promise<void> {
+    const win = window as any
+
+    // 1. Check custom user dismissal callback
+    if (typeof options.splash?.onDismiss === 'function') {
+      try {
+        await options.splash.onDismiss()
+        return
+      }
+      catch (err) {
+        if (debug) console.warn('[ProgressiveBoot] Custom onDismiss failed:', err)
+      }
+    }
+
+    // 2. Check LaylaSplashScreen (@laylalabs/capacitor-splash-screen)
+    if (win?.Capacitor?.isPluginAvailable?.('LaylaSplashScreen')) {
+      try {
+        await win.Capacitor.Plugins.LaylaSplashScreen.hide()
+        if (debug) console.info('[ProgressiveBoot] LaylaSplashScreen dismissed.')
+        return
+      }
+      catch (err) {
+        if (debug) console.warn('[ProgressiveBoot] LaylaSplashScreen.hide() failed:', err)
+      }
+    }
+
+    // 3. Fallback to official Capacitor SplashScreen plugin
+    if (win?.Capacitor?.isPluginAvailable?.('SplashScreen')) {
+      try {
+        await win.Capacitor.Plugins.SplashScreen.hide()
+        if (debug) console.info('[ProgressiveBoot] Standard SplashScreen dismissed.')
+        return
+      }
+      catch (err) {
+        if (debug) console.warn('[ProgressiveBoot] SplashScreen.hide() failed:', err)
+      }
+    }
+  }
+
+  /**
+   * Orchestrates zero-flash dismissal with double requestAnimationFrame
+   */
+  async function dismissSplash(): Promise<void> {
+    if (isDismissed.value) return
+    isDismissed.value = true
+
+    const minDisplayMs = options.splash?.minDisplayMs ?? 0
+    const elapsed = performance.now() - appStartTime
+    const remainingTime = Math.max(0, minDisplayMs - elapsed)
+
+    const executeDismiss = () => {
+      // Double RAF guarantees the browser compositor and GPU have drawn the first frame
+      requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
+          await triggerNativeDismiss()
+        })
+      })
+    }
+
+    if (remainingTime > 0) {
+      setTimeout(executeDismiss, remainingTime)
+    }
+    else {
+      executeDismiss()
+    }
+  }
+
+  // Auto-dismiss Splash Screen handling
+  const splashConfig = options.splash ?? {}
+  const autoDismiss = splashConfig.autoDismiss !== false
+  const strategy = splashConfig.strategy ?? 'page:finish'
+
+  if (autoDismiss) {
+    if (strategy === 'page:finish') {
+      nuxtApp.hook('page:finish', () => {
+        dismissSplash()
+      })
+    }
+    else if (strategy === 'double-raf' || strategy === 'app:mounted') {
+      nuxtApp.hook('app:mounted', () => {
+        dismissSplash()
+      })
+    }
+  }
+
+  // Predictive Route Prefetching handling
+  const prefetchConfig = options.prefetch ?? {}
+  const routeMap = prefetchConfig.routes ?? {}
+  const prefetchDelay = prefetchConfig.delayMs ?? 1000
+  const idleTimeout = prefetchConfig.idleTimeoutMs ?? 3000
+
+  if (Object.keys(routeMap).length > 0) {
+    const router = useRouter()
+
+    router.afterEach((to) => {
+      const targets = routeMap[to.path]
+      if (!targets || targets.length === 0) return
+
+      setTimeout(() => {
+        for (const target of targets) {
+          if (registry.isLoaded(target) || registry.isPending(target)) continue
+
+          registry.markPending(target)
+          scheduler.enqueue(
+            `prefetch:${target}`,
+            async () => {
+              const start = performance.now()
+              try {
+                await preloadRouteComponents(target)
+                const duration = Math.round(performance.now() - start)
+                registry.markLoaded(target, duration)
+                if (debug) console.info(`[ProgressiveBoot] Prefetched route "${target}" in ${duration}ms`)
+              }
+              catch (err) {
+                registry.markFailed(target, err instanceof Error ? err.message : String(err))
+                if (debug) console.warn(`[ProgressiveBoot] Failed to prefetch "${target}":`, err)
+              }
+            },
+            'idle',
+            idleTimeout,
+          )
+        }
+      }, prefetchDelay)
+    })
+  }
+
+  return {
+    provide: {
+      progressiveBoot: {
+        scheduler,
+        registry,
+        dismissSplash,
+        isDismissed,
+      },
+    },
+  }
+})

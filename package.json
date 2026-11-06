@@ -1,0 +1,62 @@
+{
+  "name": "@laylalabs/nuxt-progressive-boot",
+  "version": "0.1.0",
+  "description": "Progressive boot orchestrator for Nuxt: zero-flash splash screen synchronization, idle task prioritization, and predictive chunk prefetching.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaylaLabs/nuxt-progressive-boot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LaylaLabs/nuxt-progressive-boot/issues"
+  },
+  "homepage": "https://github.com/LaylaLabs/nuxt-progressive-boot#readme",
+  "author": "LaylaLabs <dev@laylalabs.com>",
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "build": "nuxt-module-build build",
+    "dev": "npm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.6.4",
+    "defu": "^6.1.7"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^3.4.2",
+    "@nuxt/eslint-config": "^1.17.0",
+    "@nuxt/module-builder": "^1.0.3",
+    "@nuxt/schema": "^4.6.4",
+    "@nuxt/test-utils": "^4.3.3",
+    "@types/node": "latest",
+    "eslint": "^10.12.0",
+    "nuxt": "^4.6.4",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.3",
+    "vue-tsc": "^3.3.12"
+  }
+}
