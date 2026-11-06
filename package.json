@@ -1,6 +1,6 @@
 {
   "name": "@laylalabs/nuxt-progressive-boot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Progressive boot orchestrator for Nuxt: zero-flash splash screen synchronization, idle task prioritization, and predictive chunk prefetching.",
   "repository": {
     "type": "git",

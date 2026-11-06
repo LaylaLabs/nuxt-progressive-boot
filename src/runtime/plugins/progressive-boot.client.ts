@@ -35,12 +35,18 @@ export default defineNuxtPlugin((nuxtApp) => {
     // 2. Check LaylaSplashScreen (@laylalabs/capacitor-splash-screen)
     if (win?.Capacitor?.isPluginAvailable?.('LaylaSplashScreen')) {
       try {
-        await win.Capacitor.Plugins.LaylaSplashScreen.hide()
-        if (debug) console.info('[ProgressiveBoot] LaylaSplashScreen dismissed.')
+        const plugin = win.Capacitor.Plugins.LaylaSplashScreen
+        if (typeof plugin.notifyAppReady === 'function') {
+          await plugin.notifyAppReady()
+        }
+        else {
+          await plugin.hide()
+        }
+        if (debug) console.info('[ProgressiveBoot] LaylaSplashScreen notified/dismissed.')
         return
       }
       catch (err) {
-        if (debug) console.warn('[ProgressiveBoot] LaylaSplashScreen.hide() failed:', err)
+        if (debug) console.warn('[ProgressiveBoot] LaylaSplashScreen dismiss failed:', err)
       }
     }
 
