@@ -1,4 +1,4 @@
-import { defineNuxtModule, addPlugin, addImportsDir, createResolver } from '@nuxt/kit'
+import { defineNuxtModule, addPlugin, addImportsDir, addTemplate, createResolver } from '@nuxt/kit'
 import { defu } from 'defu'
 import type { ModuleOptions } from './types'
 
@@ -20,6 +20,7 @@ export default defineNuxtModule<ModuleOptions>({
     },
     prefetch: {
       routes: {},
+      components: [],
       delayMs: 1000,
       idleTimeoutMs: 3000,
     },
@@ -33,6 +34,32 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.runtimeConfig.public.progressiveBoot,
       options,
     )
+
+    // Track components discovered by Nuxt matching configured prefetch list
+    let matchedComponents: { name: string, path: string }[] = []
+
+    nuxt.hook('components:extend', (components) => {
+      const configuredNames = new Set((options.prefetch?.components || []) as string[])
+      if (configuredNames.size === 0) return
+
+      matchedComponents = components
+        .filter(c => configuredNames.has(c.pascalName) || configuredNames.has(c.kebabName))
+        .map(c => ({
+          name: c.pascalName,
+          path: c.filePath,
+        }))
+    })
+
+    // Virtual file exporting dynamic component loaders
+    addTemplate({
+      filename: 'progressive-boot-components.mjs',
+      getContents: () => {
+        const lines = matchedComponents.map(
+          c => `  ${JSON.stringify(c.name)}: () => import(${JSON.stringify(c.path)}),`,
+        )
+        return `export const componentLoaders = {\n${lines.join('\n')}\n};\n`
+      },
+    })
 
     // Register client-side lifecycle and prefetch plugin
     addPlugin({

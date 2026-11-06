@@ -1,3 +1,5 @@
+import type { GlobalComponents } from 'vue'
+
 export type TaskPriority = 'critical' | 'high' | 'normal' | 'idle'
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -49,6 +51,12 @@ export interface SplashOptions {
   onDismiss?: () => Promise<void> | void
 }
 
+/**
+ * Strongly-typed component name resolved from Nuxt's GlobalComponents registry.
+ * Provides autocomplete for all auto-imported components in the project.
+ */
+export type ComponentName = keyof GlobalComponents extends never ? string : keyof GlobalComponents
+
 export interface PrefetchOptions {
   /**
    * Route mapping for predictive prefetching.
@@ -62,6 +70,16 @@ export interface PrefetchOptions {
    * ```
    */
   routes?: Record<string, string[]>
+
+  /**
+   * Strongly-typed list of components to prefetch during CPU idle time after boot.
+   * Autocompletes all components discovered by Nuxt in the consuming application.
+   * Example:
+   * ```ts
+   * components: ['UIDrawer', 'OnboardingFlow']
+   * ```
+   */
+  components?: ComponentName[]
 
   /**
    * Delay in milliseconds after navigation before scheduling idle prefetch tasks
@@ -83,7 +101,7 @@ export interface ModuleOptions {
   splash?: SplashOptions
 
   /**
-   * Predictive route prefetching options
+   * Predictive route and component prefetching options
    */
   prefetch?: PrefetchOptions
 
@@ -93,4 +111,3 @@ export interface ModuleOptions {
    */
   debug?: boolean
 }
-

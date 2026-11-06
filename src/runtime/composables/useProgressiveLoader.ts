@@ -69,6 +69,46 @@ export function useProgressiveLoader() {
   }
 
   /**
+   * Preloads an async component or module loader during CPU idle time.
+   */
+  async function prefetchComponent(
+    nameOrLoader: string | (() => Promise<any>),
+    priority: TaskPriority = 'idle',
+  ): Promise<void> {
+    if (!bootContext) return
+    const { registry, scheduler } = bootContext
+
+    const isFunction = typeof nameOrLoader === 'function'
+    const name = isFunction ? 'custom' : nameOrLoader
+    const cacheKey = `component:${name}`
+
+    if (registry.isLoaded(cacheKey) || registry.isPending(cacheKey)) {
+      return
+    }
+
+    registry.markPending(cacheKey)
+
+    return scheduler.enqueue(
+      `prefetch:component:${name}`,
+      async () => {
+        const start = performance.now()
+        try {
+          if (isFunction) {
+            await (nameOrLoader as () => Promise<any>)()
+          }
+          const duration = Math.round(performance.now() - start)
+          registry.markLoaded(cacheKey, duration)
+        }
+        catch (err) {
+          registry.markFailed(cacheKey, err instanceof Error ? err.message : String(err))
+        }
+      },
+      priority,
+      5000,
+    )
+  }
+
+  /**
    * Manually dismisses the native splash screen if not already dismissed.
    */
   async function dismissSplash(): Promise<void> {
@@ -81,6 +121,7 @@ export function useProgressiveLoader() {
     scheduleTask,
     prefetchRoute,
     prefetchRoutes,
+    prefetchComponent,
     dismissSplash,
     isSplashDismissed: bootContext?.isDismissed ? readonly(bootContext.isDismissed) : true,
     scheduler: bootContext?.scheduler,
@@ -91,4 +132,3 @@ export function useProgressiveLoader() {
     }),
   }
 }
-
